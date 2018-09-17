@@ -1,6 +1,3 @@
 name: リスティング広告入稿用CSV作成プラグイン
 code: ListingAdCsv
-version: 1.0.2
-service:
- - ListingAdCsvServiceProvider
-event: ListingAdCsvEvent
+version: 4.0.0

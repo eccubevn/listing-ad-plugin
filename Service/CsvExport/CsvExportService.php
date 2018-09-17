@@ -1,15 +1,19 @@
 <?php
+
 /*
-* This file is part of EC-CUBE
-*
-* Copyright(c) 2000-2016 LOCKON CO.,LTD. All Rights Reserved.
-* http://www.lockon.co.jp/
-*
-* For the full copyright and license information, please view the LICENSE
-* file that was distributed with this source code.
-*/
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Plugin\ListingAdCsv\Service\CsvExport;
+
+use Eccube\Common\EccubeConfig;
 
 class CsvExportService
 {
@@ -35,18 +39,23 @@ class CsvExportService
 
     /**
      * CsvExportService constructor.
+     *
+     * @param EccubeConfig $eccubeConfig
      * @param $output_encode
      */
-    public function __construct($output_encode)
+    public function __construct(EccubeConfig $eccubeConfig, $output_encode = null)
     {
+        if (is_null($output_encode)) {
+            $output_encode = $eccubeConfig->get('eccube_csv_export_encoding');
+        }
+
         $this->output_encode = $output_encode;
     }
-
 
     /**
      * @param array $row 出力するデータの配列
      */
-    public function exportData(Array $row)
+    public function exportData(array $row)
     {
         $this->fopen();
         $this->fputcsv($row);

@@ -1,59 +1,108 @@
 <?php
+
 /*
-* This file is part of EC-CUBE
-*
-* Copyright(c) 2000-2016 LOCKON CO.,LTD. All Rights Reserved.
-* http://www.lockon.co.jp/
-*
-* For the full copyright and license information, please view the LICENSE
-* file that was distributed with this source code.
-*/
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Plugin\ListingAdCsv\Service\ListingAdDataCreator;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManager;
-use Eccube\Application;
-use Eccube\Common\Constant;
+use Doctrine\ORM\EntityManagerInterface;
 use Eccube\Entity\Product;
+use Eccube\Form\Type\Admin\SearchProductType;
+use Eccube\Repository\ProductRepository;
 use Eccube\Util\FormUtil;
+use Plugin\ListingAdCsv\Service\CsvExport\CsvExportService;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\Campaign\ProductNameCampaign;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\Rows\Google\GoogleRowCreator;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\Rows\RowCreatorInterface;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\Rows\Yahoo\YahooRowCreator;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 class ListingAdDataCreatorService
 {
     /**
+     * @var EntityManagerInterface
+     */
+    private $em;
+
+    /**
+     * @var FormFactoryInterface
+     */
+    private $formFactory;
+
+    /**
+     * @var ProductRepository
+     */
+    private $productRepository;
+
+    /**
+     * @var CsvExportService
+     */
+    private $listingAdExport;
+
+    /**
+     * @var ProductNameCampaign
+     */
+    private $productNameCampaign;
+
+    /**
+     * ListingAdDataCreatorService constructor.
+     *
+     * @param EntityManagerInterface $em
+     * @param FormFactoryInterface $formFactory
+     * @param ProductRepository $productRepository
+     * @param CsvExportService $listingAdExport
+     * @param ProductNameCampaign $productNameCampaign
+     */
+    public function __construct(EntityManagerInterface $em, FormFactoryInterface $formFactory, ProductRepository $productRepository, CsvExportService $listingAdExport, ProductNameCampaign $productNameCampaign)
+    {
+        $this->em = $em;
+        $this->formFactory = $formFactory;
+        $this->productRepository = $productRepository;
+        $this->listingAdExport = $listingAdExport;
+        $this->productNameCampaign = $productNameCampaign;
+    }
+
+    /**
      * リスティング広告データを生成する
-     * @param Application $app
+     *
      * @param Request $request
      * @param string $type
      */
-    public function create(Application $app, Request $request, $type)
+    public function create(Request $request, $type)
     {
         // 商品データ検索用のクエリビルダを取得
-        $this->disableSQLLogger($app);
-        $query = $this->getFilteredProductsQuery($app, $request);
+        $this->disableSQLLogger();
+        $query = $this->getFilteredProductsQuery($request);
         $products = $query->getResult();
 
         // 出力
         $creator = $this->getCreator($type);
-        $this->exportHeaderData($app, $creator);
-        $this->exportProductNameCampaign($app, $creator, $products);
+        $this->exportHeaderData($creator);
+        $this->exportProductNameCampaign($creator, $products);
 
         // メモリの解放
         foreach ($products as $product) {
-            $app['orm.em']->detach($product);
-            $app['orm.em']->clear();
+            $this->em->detach($product);
+            $this->em->clear();
             $query->free();
-            flush();
+            $this->em->flush();
         }
     }
 
     /**
      * @param string $type
+     *
      * @return RowCreatorInterface
      */
     private function getCreator($type)
@@ -70,12 +119,10 @@ class ListingAdDataCreatorService
 
     /**
      * sql loggerを無効にする
-     * @param Application $app
      */
-    private function disableSQLLogger(Application $app)
+    private function disableSQLLogger()
     {
-        $em = $app['orm.em'];
-        $em->getConfiguration()->setSQLLogger(null);
+        $this->em->getConfiguration()->setSQLLogger(null);
     }
 
     /**
@@ -83,14 +130,14 @@ class ListingAdDataCreatorService
      *
      * クエリの結果を商品マスターの検索結果と一致させたいので、
      * ProductControllerクラスのexport関数と処理を合わせている。
-     * @param Application $app
+     *
      * @param Request $request
+     *
      * @return \Doctrine\ORM\Query
      */
-    private function getFilteredProductsQuery(Application $app, Request $request)
+    private function getFilteredProductsQuery(Request $request)
     {
-        $em = $app['orm.em'];
-        $qb = $this->getProductQueryBuilder($app, $request, $em);
+        $qb = $this->getProductQueryBuilder($request);
         $qb->resetDQLPart('select')
             ->resetDQLPart('orderBy')
             ->select('p')
@@ -103,35 +150,23 @@ class ListingAdDataCreatorService
     /**
      * 商品検索用のクエリビルダを返す.
      *
-     * @param Application $app
      * @param Request $request
-     * @param EntityManager $em
+     *
      * @return \Doctrine\ORM\QueryBuilder
      */
-    public function getProductQueryBuilder(Application $app, Request $request, $em)
+    public function getProductQueryBuilder(Request $request)
     {
         $session = $request->getSession();
-        if (version_compare(Constant::VERSION, '3.0.15', '<')) {
-            if ($session->has('eccube.admin.product.search')) {
-                $searchData = $session->get('eccube.admin.product.search');
-                $this->findDeserializeObjects($searchData, $em);
-            } else {
-                $searchData = array();
-            }
-        } else {
-            $viewData = $session->get('eccube.admin.product.search', array());
-            $searchForm = $app['form.factory']->create('admin_search_product', null, array('csrf_protection' => false));
-            $searchData = FormUtil::submitAndGetData($searchForm, $viewData);
-            if (isset($viewData['link_status']) && strlen($viewData['link_status'])) {
-                $searchData['link_status'] = $app['eccube.repository.master.disp']->find($viewData['link_status']);
-            }
-            if (isset($viewData['stock_status'])) {
-                $searchData['stock_status'] = $viewData['stock_status'];
-            }
-        }
+        $builder = $this->formFactory
+            ->createBuilder(SearchProductType::class);
+        $searchForm = $builder->getForm();
 
-        // 商品データのクエリビルダを構築
-        $qb = $app['eccube.repository.product']->getQueryBuilderBySearchDataForAdmin($searchData);
+        $viewData = $session->get('eccube.admin.product.search', []);
+        $searchData = FormUtil::submitAndGetData($searchForm, $viewData);
+
+        // 商品データのクエリビルダを構築.
+        $qb = $this->productRepository
+            ->getQueryBuilderBySearchDataForAdmin($searchData);
 
         return $qb;
     }
@@ -166,26 +201,28 @@ class ListingAdDataCreatorService
 
     /**
      * ヘッダーを生成して出力
-     * @param Application $app
+     *
      * @param RowCreatorInterface $creator
      */
-    private function exportHeaderData(Application $app, RowCreatorInterface $creator)
+    private function exportHeaderData(RowCreatorInterface $creator)
     {
         $header = $creator->GetHeaderRow();
-        $app['listing_ad_csv.service.csv.export']->exportData($header);
+        $this->listingAdExport->exportData($header);
     }
 
     /**
      * 商品キャンペーンを生成して出力
-     * @param Application $app
+     *
      * @param RowCreatorInterface $creator
      * @param Product[] $products
      */
-    private function exportProductNameCampaign(Application $app, RowCreatorInterface $creator, $products)
+    private function exportProductNameCampaign(RowCreatorInterface $creator, $products)
     {
-        $rows = $creator->GetRows(new ProductNameCampaign($app, $products));
+        $campaign = $this->productNameCampaign;
+        $campaign->buildProduct($products);
+        $rows = $creator->GetRows($campaign);
         foreach ($rows as $row) {
-            $app['listing_ad_csv.service.csv.export']->exportData($row);
+            $this->listingAdExport->exportData($row);
         }
     }
 }

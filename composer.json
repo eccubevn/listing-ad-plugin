@@ -1,0 +1,9 @@
+{
+  "name": "リスティング広告入稿用CSV作成プラグイン",
+  "version": "4.0.0",
+  "description": "リスティング広告入稿用CSV作成プラグイン",
+  "type": "eccube-plugin",
+  "extra": {
+    "code": "ListingAdCsv"
+  }
+}

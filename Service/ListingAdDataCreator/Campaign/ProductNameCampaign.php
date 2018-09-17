@@ -1,68 +1,95 @@
 <?php
+
 /*
-* This file is part of EC-CUBE
-*
-* Copyright(c) 2000-2016 LOCKON CO.,LTD. All Rights Reserved.
-* http://www.lockon.co.jp/
-*
-* For the full copyright and license information, please view the LICENSE
-* file that was distributed with this source code.
-*/
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Plugin\ListingAdCsv\Service\ListingAdDataCreator\Campaign;
 
-
-use Eccube\Application;
+use Eccube\Common\EccubeConfig;
 use Eccube\Entity\Product;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\AdData\AdContents;
 use Plugin\ListingAdCsv\Service\ListingAdDataCreator\AdData\AdGroup;
 use Plugin\ListingAdCsv\Util\CsvContentsUtil;
-use Symfony\Component\Yaml\Yaml;
 
 class ProductNameCampaign implements CampaignInterface
 {
     /**
      * @var AdGroup[]
      */
-    private $ad_groups = array();
+    private $ad_groups = [];
 
     /**
      * クリック単価
+     *
      * @var string
      */
     private $max_cpc = '0';
 
     /**
      * キャンペーン予算(日額)
+     *
      * @var string
      */
     private $daily_budget = '0';
 
     /**
      * キャンペーンの配信状態
+     *
      * @var bool
      */
     private $campaign_status = false;
 
     /**
      * キーワードのマッチタイプ
+     *
      * @var int
      */
     private $match_type = 2;
 
     /**
-     * StoreCategoryCampaign constructor.
-     * @param Application $app
-     * @param Product[] $products
+     * @var AdContents
      */
-    public function __construct(Application $app, $products)
+    private $adContents;
+
+    /**
+     * @var EccubeConfig
+     */
+    private $eccubeConfig;
+
+    /**
+     * ProductNameCampaign constructor.
+     *
+     * @param AdContents $adContents
+     * @param EccubeConfig $eccubeConfig
+     */
+    public function __construct(AdContents $adContents, EccubeConfig $eccubeConfig)
+    {
+        $this->adContents = $adContents;
+        $this->eccubeConfig = $eccubeConfig;
+    }
+
+    /**
+     * @param array $products
+     *
+     * @throws \Exception
+     */
+    public function buildProduct(array $products)
     {
         // YAMLからパラメータ読み込み
         $this->LoadParameter();
 
         foreach ($products as $product) {
             // 商品情報から広告を動的に生成
-            $ad_contents = new AdContents($app, $product);
+            $ad_contents = $this->adContents;
+            $ad_contents->buildProduct($product);
 
             // 商品名
             $this->createAdGroup($product, $ad_contents);
@@ -78,7 +105,7 @@ class ProductNameCampaign implements CampaignInterface
      */
     public function getCampaignName()
     {
-        return '商品名';
+        return trans('listing_ad_csv.campaign_name');
     }
 
     /**
@@ -92,7 +119,6 @@ class ProductNameCampaign implements CampaignInterface
     /**
      * @param Product $product
      * @param AdContents $ad_contents
-     * @return AdGroup
      */
     private function createAdGroup(Product $product, AdContents $ad_contents)
     {
@@ -109,13 +135,13 @@ class ProductNameCampaign implements CampaignInterface
      */
     private function createAdGroupWithCategory(Product $product, AdContents $ad_contents)
     {
-        $group_name = CsvContentsUtil::clipText($product->getName() . '×' . 'カテゴリ', 50);
+        $group_name = CsvContentsUtil::clipText($product->getName().'×'.trans('listing_ad_csv.campaign.category'), 50);
         $group = new AdGroup($group_name, $ad_contents);
 
         $categories = $product->getProductCategories();
         foreach ($categories as $category) {
             $category_name = $category->getCategory()->getName();
-            $group->addKeyword($product->getName() . ' ' . $category_name);
+            $group->addKeyword($product->getName().' '.$category_name);
         }
 
         if (0 < count($group->getKeywords())) {
@@ -129,13 +155,13 @@ class ProductNameCampaign implements CampaignInterface
      */
     private function createAdGroupWithSearchWord(Product $product, AdContents $ad_contents)
     {
-        $group_name = CsvContentsUtil::clipText($product->getName() . '×' . '検索ワード', 50);
+        $group_name = CsvContentsUtil::clipText($product->getName().'×'.trans('listing_ad_csv.campaign.search_word'), 50);
         $group = new AdGroup($group_name, $ad_contents);
 
         $search_word = $product->getSearchWord();
         $keywords = preg_split('/[\s　、,]+/u', $search_word, -1, PREG_SPLIT_NO_EMPTY);
         foreach ($keywords as $word) {
-            $group->addKeyword($product->getName() . ' ' . $word);
+            $group->addKeyword($product->getName().' '.$word);
         }
 
         if (0 < count($group->getKeywords())) {
@@ -164,17 +190,10 @@ class ProductNameCampaign implements CampaignInterface
      */
     private function LoadParameter()
     {
-        $ymlPath = __DIR__ . '/../config';
-        $config = array();
-        $config_yml = $ymlPath . '/config.yml';
-        if (file_exists($config_yml)) {
-            $config = Yaml::parse(file_get_contents($config_yml));
-        }
-
-        $this->max_cpc = $config['MaxCpc'];
-        $this->daily_budget = $config['DailyBudget'];
-        $this->campaign_status = $config['CampaignStatus'];
-        $this->match_type = $config['MatchType'];
+        $this->max_cpc = $this->eccubeConfig['MaxCpc'];
+        $this->daily_budget = $this->eccubeConfig['DailyBudget'];
+        $this->campaign_status = $this->eccubeConfig['CampaignStatus'];
+        $this->match_type = $this->eccubeConfig['MatchType'];
     }
 
     /**

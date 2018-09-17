@@ -1,24 +1,25 @@
 <?php
+
 /*
-* This file is part of EC-CUBE
-*
-* Copyright(c) 2000-2016 LOCKON CO.,LTD. All Rights Reserved.
-* http://www.lockon.co.jp/
-*
-* For the full copyright and license information, please view the LICENSE
-* file that was distributed with this source code.
-*/
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Plugin\ListingAdCsv\Service\ListingAdDataCreator\AdData;
 
-
-use Eccube\Application;
 use Eccube\Entity\Product;
+use Eccube\Repository\BaseInfoRepository;
 use Plugin\ListingAdCsv\Util\CsvContentsUtil;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class AdContents
 {
-
     /**
      * @var string
      */
@@ -50,15 +51,37 @@ class AdContents
     private $ad_inner_name = '';
 
     /**
-     * AdContents constructor.
-     * @param Application $app
-     * @param Product $product
+     * @var BaseInfoRepository
      */
-    public function __construct(Application $app, Product $product)
+    private $baseInfoRepository;
+
+    /**
+     * @var UrlGeneratorInterface
+     */
+    private $urlGenerator;
+
+    /**
+     * AdContents constructor.
+     *
+     * @param BaseInfoRepository $baseInfoRepository
+     * @param UrlGeneratorInterface $urlGenerator
+     */
+    public function __construct(BaseInfoRepository $baseInfoRepository, UrlGeneratorInterface $urlGenerator)
     {
-        $shop_name = $app['eccube.repository.base_info']->get()->getShopName();
-        $homepage_url = $app->url('homepage');
-        $product_url = $app->url('product_detail', array('id' => $product->getId()));
+        $this->baseInfoRepository = $baseInfoRepository;
+        $this->urlGenerator = $urlGenerator;
+    }
+
+    /**
+     * @param Product $product
+     *
+     * @throws \Exception
+     */
+    public function buildProduct(Product $product)
+    {
+        $shop_name = $this->baseInfoRepository->get()->getShopName();
+        $homepage_url = $this->urlGenerator->generate('homepage', [], UrlGeneratorInterface::ABSOLUTE_PATH);
+        $product_url = $this->urlGenerator->generate('product_detail', ['id' => $product->getId()], UrlGeneratorInterface::ABSOLUTE_PATH);
 
         $this->headline = CsvContentsUtil::clipText($product->getName(), 15);
         $this->description1 = CsvContentsUtil::clipText($product->getDescriptionDetail(), 19);
@@ -67,7 +90,7 @@ class AdContents
         $this->link_url = CsvContentsUtil::clipText($product_url, 1024);
 
         $now = new \DateTime();
-        $ad_name = $now->format('Ymd') . '_' . str_pad($product->getId(), 4, 0, STR_PAD_LEFT);
+        $ad_name = $now->format('Ymd').'_'.str_pad($product->getId(), 4, 0, STR_PAD_LEFT);
         $this->ad_inner_name = CsvContentsUtil::clipText($ad_name, 50);
     }
 
@@ -118,5 +141,4 @@ class AdContents
     {
         return $this->ad_inner_name;
     }
-
 }

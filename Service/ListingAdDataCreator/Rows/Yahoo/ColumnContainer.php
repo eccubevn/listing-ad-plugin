@@ -1,13 +1,15 @@
 <?php
+
 /*
-* This file is part of EC-CUBE
-*
-* Copyright(c) 2000-2016 LOCKON CO.,LTD. All Rights Reserved.
-* http://www.lockon.co.jp/
-*
-* For the full copyright and license information, please view the LICENSE
-* file that was distributed with this source code.
-*/
+ * This file is part of EC-CUBE
+ *
+ * Copyright(c) LOCKON CO.,LTD. All Rights Reserved.
+ *
+ * http://www.lockon.co.jp/
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 namespace Plugin\ListingAdCsv\Service\ListingAdDataCreator\Rows\Yahoo;
 
@@ -19,7 +21,7 @@ class ColumnContainer
      * key: ヘッダー名
      * value: 出力するプロパティ名
      */
-    private static $column_map = array(
+    private static $column_map = [
         'キャンペーン名' => 'campaign_name',
         ' 広告グループ名' => 'ad_group_name',
         ' コンポーネントの種類' => 'component_type',
@@ -48,7 +50,7 @@ class ColumnContainer
         ' キーワードID' => 'keyword_id',
         ' 広告ID' => 'ad_id',
         ' エラーメッセージ' => 'error_message',
-    );
+    ];
 
     /**
      * @var string
@@ -110,24 +112,20 @@ class ColumnContainer
      */
     private $ad_description_1 = '';
 
-
     /**
      * @var string
      */
     private $ad_description_2 = '';
-
 
     /**
      * @var string
      */
     private $ad_display_url = '';
 
-
     /**
      * @var string
      */
     private $ad_link_url = '';
-
 
     /**
      * @var string
@@ -424,12 +422,15 @@ class ColumnContainer
     public function getRow()
     {
         $property_names = array_values(self::$column_map);
-        $row_data_array = array();
+        $row_data_array = [];
         foreach ($property_names as $property) {
-            if (!property_exists($this, $property)) continue;
+            if (!property_exists($this, $property)) {
+                continue;
+            }
 
             array_push($row_data_array, $this->$property);
         }
+
         return $row_data_array;
     }
 
