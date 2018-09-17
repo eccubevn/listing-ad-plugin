@@ -16,7 +16,6 @@ namespace Plugin\ListingAdCsv\Service\ListingAdDataCreator;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
-use Eccube\Entity\Product;
 use Eccube\Form\Type\Admin\SearchProductType;
 use Eccube\Repository\ProductRepository;
 use Eccube\Util\FormUtil;
@@ -214,7 +213,9 @@ class ListingAdDataCreatorService
      * 商品キャンペーンを生成して出力
      *
      * @param RowCreatorInterface $creator
-     * @param Product[] $products
+     * @param array $products
+     *
+     * @throws \Exception
      */
     private function exportProductNameCampaign(RowCreatorInterface $creator, $products)
     {

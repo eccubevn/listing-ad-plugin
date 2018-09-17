@@ -26,6 +26,7 @@ class ExportController extends AbstractController
      *
      * @param Request $request
      * @param string $type CSV出力形式の種類
+     * @param ListingAdDataCreatorService $adDataCreatorService
      *
      * @return StreamedResponse
      *
